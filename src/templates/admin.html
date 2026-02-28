@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Portal - Global Godown</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+  </head>
+  <body>
+    <div class="navbar">
+      <h2>Global Godown (Admin)</h2>
+      <div>
+        <span class="badge" id="db-indicator">Active DB: SQL</span>
+        <button class="btn btn-outline" onclick="location.href = '/'">
+          Logout
+        </button>
+      </div>
+    </div>
+
+    <div class="container">
+      <div class="grid" style="grid-template-columns: 1fr 2fr">
+        <div class="card">
+          <h3>Add New Product</h3>
+          <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 1.5rem">
+            Add to the master inventory.
+          </p>
+          <div id="add-form">
+            <input type="text" id="sku" placeholder="SKU (e.g. LAP-001)" />
+            <input type="text" id="name" placeholder="Product Name" />
+            <textarea
+              id="desc"
+              placeholder="Product Description..."
+              rows="3"
+            ></textarea>
+            <input
+              type="number"
+              id="stock"
+              placeholder="Master Stock Quantity"
+            />
+            <button class="btn" style="width: 100%" onclick="addProduct()">
+              Add to Godown
+            </button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Global Godown Inventory</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Master Stock</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="inventory-table">
+              <!-- Loaded dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">Message here</div>
+
+    <script>
+      const API_BASE = "/api";
+      // DB type toggle for Admin, but typically Admin acts on both or the main one. We will assume Admin uses SQL for simplicity or reads localStorage.
+      const dbType = localStorage.getItem("dbType") || "sql";
+      document.getElementById("db-indicator").innerText =
+        "Active DB: " + dbType.toUpperCase();
+
+      function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.innerText = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3000);
+      }
+
+      async function fetchAPI(module, action, data) {
+        const payload = { db: dbType, ...data };
+        const res = await fetch(`${API_BASE}/${module}/${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        return res.json();
+      }
+
+      async function loadInventory() {
+        const res = await fetchAPI("godown", "view", {});
+        if (res.success) {
+          const tbody = document.getElementById("inventory-table");
+          tbody.innerHTML = "";
+          res.data.forEach((item) => {
+            tbody.innerHTML += `
+                        <tr>
+                            <td>${item.sku}</td>
+                            <td>${item.name}</td>
+                            <td>${item.master_stock}</td>
+                            <td>
+                                <button class="btn" style="padding: 0.25rem 0.5rem; font-size:0.875rem;" onclick="addStock(${item.id})">+ Stock</button>
+                            </td>
+                        </tr>
+                    `;
+          });
+        }
+      }
+
+      async function addProduct() {
+        const data = {
+          sku: document.getElementById("sku").value,
+          name: document.getElementById("name").value,
+          description: document.getElementById("desc").value,
+          master_stock: document.getElementById("stock").value,
+        };
+        if (!data.sku || !data.name || !data.master_stock)
+          return showToast("Please fill all fields");
+
+        const res = await fetchAPI("godown", "add", data);
+        showToast(res.msg);
+        if (res.success) {
+          document.getElementById("sku").value = "";
+          document.getElementById("name").value = "";
+          document.getElementById("desc").value = "";
+          document.getElementById("stock").value = "";
+          loadInventory();
+        }
+      }
+
+      async function addStock(id) {
+        const num = prompt("How much stock to add?");
+        if (!num) return;
+        const res = await fetchAPI("godown", "view", {}); // fetch to get current stock
+        const item = res.data.find((x) => x.id === id);
+        if (item) {
+          const updateRes = await fetchAPI("godown", "update", {
+            id,
+            master_stock: item.master_stock + parseInt(num),
+          });
+          if (updateRes.success) {
+            showToast("Stock updated");
+            loadInventory();
+          }
+        }
+      }
+
+      // Init
+      loadInventory();
+    </script>
+  </body>
+</html>

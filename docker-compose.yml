@@ -1,0 +1,38 @@
+version: "3.8"
+
+services:
+  mysql_db:
+    image: mysql:8.0
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: 12345
+      MYSQL_DATABASE: inventory_db
+    volumes:
+      - ./src/database/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      - mysql_data:/var/lib/mysql
+
+  mongo_db:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend_app:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      - MYSQL_HOST=mysql_db
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=12345
+      - MYSQL_DB=inventory_db
+      - MONGO_URI=mongodb://mongo_db:27017/
+    depends_on:
+      - mysql_db
+      - mongo_db
+
+volumes:
+  mysql_data:
+  mongo_data:

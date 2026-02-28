@@ -1,0 +1,518 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>User Portal - Storefront</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/static/css/style.css" />
+    <style>
+      .tabs {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        border-bottom: 2px solid #e5e7eb;
+        padding-bottom: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .tab {
+        font-weight: 500;
+        cursor: pointer;
+        color: #6b7280;
+        padding: 0.5rem;
+      }
+      .tab:hover {
+        color: #111827;
+      }
+      .tab.active {
+        color: var(--primary);
+        border-bottom: 2px solid var(--primary);
+        margin-bottom: -0.65rem;
+        padding-bottom: 0.5rem;
+      }
+      #auth-section,
+      #app-section {
+        transition: opacity 0.3s;
+      }
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+      }
+      .modal-content {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        width: 400px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="navbar">
+      <h2>Storefront Portal</h2>
+      <div>
+        <span class="badge" id="db-indicator" style="margin-right: 1rem"
+          >Active DB</span
+        >
+        <span
+          class="badge hidden"
+          style="background: #d1fae5; color: #065f46"
+          id="user-badge"
+          >User</span
+        >
+        <button class="btn btn-outline" onclick="logout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="container" id="auth-section">
+      <div class="card" style="max-width: 400px; margin: 0 auto">
+        <div id="login-form">
+          <h3 style="margin-top: 0">Login</h3>
+          <input type="text" id="username" placeholder="Username" />
+          <input type="password" id="password" placeholder="Password" />
+          <button class="btn" style="width: 100%" onclick="login()">
+            Login
+          </button>
+          <p
+            style="
+              text-align: center;
+              font-size: 0.875rem;
+              color: #6b7280;
+              margin-top: 1rem;
+            "
+          >
+            No account? <a href="#" onclick="toggleAuth(true)">Register here</a>
+          </p>
+        </div>
+
+        <div id="register-form" class="hidden">
+          <h3 style="margin-top: 0">Register</h3>
+          <input type="text" id="reg-username" placeholder="Username" />
+          <input type="password" id="reg-password" placeholder="Password" />
+          <button class="btn" style="width: 100%" onclick="register()">
+            Create Account
+          </button>
+          <p
+            style="
+              text-align: center;
+              font-size: 0.875rem;
+              color: #6b7280;
+              margin-top: 1rem;
+            "
+          >
+            Have an account? <a href="#" onclick="toggleAuth(false)">Login</a>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="container hidden" id="app-section">
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab('store')">My Storefront</div>
+        <div class="tab" onclick="switchTab('godown')">Browse Godown</div>
+        <div class="tab" onclick="switchTab('shop')">Simulate Shop</div>
+        <div class="tab" onclick="switchTab('cart')">
+          Shopping Cart (<span id="cart-count">0</span>)
+        </div>
+      </div>
+
+      <!-- My Storefront View -->
+      <div id="view-store" class="card">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <h3>Private Product Table</h3>
+          <button class="btn btn-outline" onclick="switchTab('godown')">
+            + Get Stock
+          </button>
+        </div>
+        <p style="color: #6b7280; font-size: 0.9rem">
+          Items you've picked from Godown. Your personal inventory.
+        </p>
+        <div style="overflow-x: auto">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Your Price</th>
+                <th>Stock Info</th>
+              </tr>
+            </thead>
+            <tbody id="store-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Godown View -->
+      <div id="view-godown" class="card hidden">
+        <h3>Global Godown Master Inventory</h3>
+        <p style="color: #6b7280; font-size: 0.9rem">
+          Data fetched cross-boundary from master SQL Database.
+        </p>
+        <div style="overflow-x: auto">
+          <table>
+            <thead>
+              <tr>
+                <th>SKU</th>
+                <th>Name</th>
+                <th>Godown Stock</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="godown-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Simulate Ordering View -->
+      <div id="view-shop" class="card hidden">
+        <h3>Customer View - Add to Cart</h3>
+        <p style="color: #6b7280; font-size: 0.9rem">
+          This simulates a customer buying from your private store and adding
+          objects to logic cart.
+        </p>
+        <div class="grid" id="shop-grid"></div>
+      </div>
+
+      <!-- Cart View -->
+      <div id="view-cart" class="card hidden">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            margin-bottom: 2rem;
+          "
+        >
+          <div>
+            <h3>Shopping Cart Confirmation</h3>
+            <p style="color: #6b7280; font-size: 0.9rem; margin: 0">
+              Review your user's orders before placing them.
+            </p>
+          </div>
+          <button
+            class="btn"
+            style="background: #10b981"
+            onclick="checkoutCart()"
+          >
+            Place Order
+          </button>
+        </div>
+        <div style="overflow-x: auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Product Name</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Total</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="cart-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pick Modal -->
+    <div id="pick-modal" class="modal hidden">
+      <div class="modal-content">
+        <h3 style="margin-top: 0">Pick Product to Storefront</h3>
+        <p
+          id="pick-product-name"
+          style="color: #6b7280; font-size: 0.9rem; margin-bottom: 1rem"
+        ></p>
+        <p
+          style="
+            font-size: 0.8rem;
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 0.5rem;
+            border-radius: 4px;
+          "
+        >
+          Note: Picking stock explicitly deducts it from the Admin Godown.
+        </p>
+        <input type="hidden" id="pick-gid" />
+        <label>Quantity to Pull</label>
+        <input type="number" id="pick-qty" placeholder="e.g. 50" />
+        <label>Your Retail Price ($)</label>
+        <input type="number" id="pick-price" placeholder="e.g. 19.99" />
+        <div style="display: flex; gap: 1rem; margin-top: 1rem">
+          <button class="btn" style="flex: 1" onclick="confirmPick()">
+            Add to Store
+          </button>
+          <button
+            class="btn btn-outline"
+            style="flex: 1"
+            onclick="closePickModal()"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">Message here</div>
+
+    <script>
+      const API = "/api";
+      const dbType = localStorage.getItem("dbType") || "sql";
+      document.getElementById("db-indicator").innerText =
+        "Network: " + dbType.toUpperCase();
+      let sessionUser = null;
+
+      function showToast(msg) {
+        const t = document.getElementById("toast");
+        t.innerText = msg;
+        t.classList.add("show");
+        setTimeout(() => t.classList.remove("show"), 3000);
+      }
+
+      async function post(module, action, data) {
+        const res = await fetch(`${API}/${module}/${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ db: dbType, ...data }),
+        });
+        return res.json();
+      }
+
+      function toggleAuth(isReg) {
+        document.getElementById("login-form").classList.toggle("hidden", isReg);
+        document
+          .getElementById("register-form")
+          .classList.toggle("hidden", !isReg);
+      }
+
+      async function login() {
+        const payload = {
+          username: document.getElementById("username").value,
+          password: document.getElementById("password").value,
+        };
+        const res = await post("auth", "login", payload);
+        if (res.success) {
+          sessionUser = res.user_id;
+          document.getElementById("user-badge").innerText =
+            "@" + payload.username;
+          document.getElementById("user-badge").classList.remove("hidden");
+          document.getElementById("auth-section").classList.add("hidden");
+          document.getElementById("app-section").classList.remove("hidden");
+          loadStore();
+          updateCartCount();
+        } else showToast(res.msg);
+      }
+
+      async function register() {
+        const payload = {
+          username: document.getElementById("reg-username").value,
+          password: document.getElementById("reg-password").value,
+        };
+        const res = await post("auth", "register", payload);
+        if (res.success) {
+          showToast(res.msg);
+          toggleAuth(false);
+        } else showToast(res.msg);
+      }
+
+      function logout() {
+        sessionUser = null;
+        document.getElementById("user-badge").classList.add("hidden");
+        document.getElementById("app-section").classList.add("hidden");
+        document.getElementById("auth-section").classList.remove("hidden");
+      }
+
+      function switchTab(t) {
+        // Update tabs visually
+        const tabElements = document.querySelectorAll(".tab");
+        tabElements.forEach((el) => el.classList.remove("active"));
+
+        if (t === "store") tabElements[0].classList.add("active");
+        if (t === "godown") tabElements[1].classList.add("active");
+        if (t === "shop") tabElements[2].classList.add("active");
+        if (t === "cart") tabElements[3].classList.add("active");
+
+        // Update views
+        document
+          .getElementById("view-store")
+          .classList.toggle("hidden", t !== "store");
+        document
+          .getElementById("view-godown")
+          .classList.toggle("hidden", t !== "godown");
+        document
+          .getElementById("view-shop")
+          .classList.toggle("hidden", t !== "shop");
+        document
+          .getElementById("view-cart")
+          .classList.toggle("hidden", t !== "cart");
+
+        // Load data
+        if (t === "godown") loadGodown();
+        else if (t === "store") loadStore();
+        else if (t === "shop") loadShop();
+        else if (t === "cart") loadCart();
+
+        updateCartCount();
+      }
+
+      async function loadGodown() {
+        const res = await post("godown", "view", {});
+        const tbody = document.getElementById("godown-tbody");
+        tbody.innerHTML = "";
+        (res.data || []).forEach((item) => {
+          tbody.innerHTML += `
+                    <tr>
+                        <td>${item.sku}</td><td>${item.name}</td><td>${item.master_stock} in Godown</td>
+                        <td><button class="btn" style="padding:0.25rem 0.5rem" onclick="openPickModal(${item.id}, '${item.name}')">Pick to Store</button></td>
+                    </tr>
+                `;
+        });
+      }
+
+      async function loadStore() {
+        const res = await post("storefront", "view", { user_id: sessionUser });
+        const tbody = document.getElementById("store-tbody");
+        tbody.innerHTML = "";
+        (res.data || []).forEach((item) => {
+          tbody.innerHTML += ` <tr><td>${item.sku}</td><td>${item.name}</td><td>$${item.price}</td><td>${item.stock} left</td></tr> `;
+        });
+      }
+
+      async function loadShop() {
+        const res = await post("storefront", "view", { user_id: sessionUser });
+        const grid = document.getElementById("shop-grid");
+        grid.innerHTML = "";
+        (res.data || []).forEach((item) => {
+          if (item.stock > 0) {
+            grid.innerHTML += `
+                        <div class="card" style="box-shadow:none; border:1px solid #e5e7eb">
+                            <h4>${item.name} <span>($${item.price})</span></h4>
+                            <p style="font-size:0.875rem; color:#6b7280">${item.stock} available</p>
+                            <input type="number" id="qty-${item.godown_product_id}" placeholder="Qty to Cart" value="1">
+                            <button class="btn btn-outline" style="width:100%" onclick="addToCart(${item.godown_product_id})">Add to Cart</button>
+                        </div>
+                    `;
+          }
+        });
+        if (!grid.innerHTML)
+          grid.innerHTML =
+            "<p>Your store has no available items to sell. Please pick from Godown.</p>";
+      }
+
+      async function updateCartCount() {
+        if (!sessionUser) return;
+        const res = await post("cart", "view", { user_id: sessionUser });
+        if (res.success) {
+          let badge = 0;
+          res.data.forEach((x) => (badge += x.qty));
+          document.getElementById("cart-count").innerText = badge;
+        }
+      }
+
+      async function loadCart() {
+        const res = await post("cart", "view", { user_id: sessionUser });
+        const tbody = document.getElementById("cart-tbody");
+        tbody.innerHTML = "";
+        let grandTotal = 0;
+        if (res.success && res.data.length > 0) {
+          res.data.forEach((item) => {
+            grandTotal += item.total;
+            tbody.innerHTML += ` 
+                        <tr>
+                            <td>${item.name}</td>
+                            <td>${item.qty}</td>
+                            <td>$${item.price}</td>
+                            <td style="font-weight:600">$${item.total.toFixed(2)}</td>
+                            <td><button class="btn btn-outline btn-danger" style="padding:0.25rem 0.5rem;" onclick="removeFromCart(${item.id})">Remove</button></td>
+                        </tr> 
+                    `;
+          });
+          tbody.innerHTML += `<tr><td colspan="3" style="text-align:right"><strong>Total Sum:</strong></td><td colspan="2" style="font-size:1.1rem;color:#10b981;font-weight:700">$${grandTotal.toFixed(2)}</td></tr>`;
+        } else {
+          tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#6b7280;">Your Cart is Empty.</td></tr>`;
+        }
+      }
+
+      function openPickModal(gid, name) {
+        document.getElementById("pick-gid").value = gid;
+        document.getElementById("pick-product-name").innerText =
+          `Godown Item: ${name}`;
+        document.getElementById("pick-modal").classList.remove("hidden");
+        document.getElementById("pick-qty").value = "";
+        document.getElementById("pick-price").value = "";
+      }
+
+      function closePickModal() {
+        document.getElementById("pick-modal").classList.add("hidden");
+      }
+
+      async function confirmPick() {
+        const data = {
+          user_id: sessionUser,
+          godown_product_id: parseInt(
+            document.getElementById("pick-gid").value,
+          ),
+          qty: parseInt(document.getElementById("pick-qty").value),
+          price: parseFloat(document.getElementById("pick-price").value),
+        };
+        if (!data.qty || !data.price)
+          return showToast("Quantity and Price required");
+        const res = await post("storefront", "pick", data);
+        showToast(res.msg);
+        if (res.success) {
+          closePickModal();
+          loadGodown();
+        }
+      }
+
+      async function addToCart(gid) {
+        const qty = document.getElementById(`qty-${gid}`).value;
+        if (qty <= 0) return showToast("Invalid quantity");
+        const res = await post("cart", "add", {
+          store_owner_id: sessionUser,
+          godown_product_id: gid,
+          qty: qty,
+        });
+        showToast(res.msg);
+        if (res.success) {
+          loadShop();
+          updateCartCount();
+        }
+      }
+
+      async function removeFromCart(cartId) {
+        const res = await post("cart", "remove", {
+          user_id: sessionUser,
+          cart_item_id: cartId,
+        });
+        showToast(res.msg);
+        if (res.success) {
+          loadCart();
+          updateCartCount();
+        }
+      }
+
+      async function checkoutCart() {
+        const res = await post("cart", "checkout", { user_id: sessionUser });
+        showToast(res.msg);
+        if (res.success) {
+          loadCart();
+          updateCartCount();
+        }
+      }
+    </script>
+  </body>
+</html>
